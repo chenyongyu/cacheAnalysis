@@ -16,8 +16,29 @@ object SparkApp1 {
                  Ip:String,
                  BegTime:String
                  )
-  case class Cacheable(
+
+  def userToString(user: User): String = {
+    return user.Ip+"@"+user.BegTime
+  }
+
+  trait BasicInfo {
+    def Ip: String
+    def BegTime: String
+    def Protocal: Int
+    def Content: Int
+    def UserIp: String
+    def UserIpv6: String
+    def UL: Int
+    def DL: Int
+    def IsSuccess: Boolean
+  }
+  case class HTTP(
+                      Head:BasicInfo,
+                      Host:String,
                       Content:Int,
+                      HTTPContentType:String,
+                      FirstLatency:Int,
+                      Latency:Int,
                       IsCacheAble: Boolean
                       )
   def main(args: Array[String]) {
@@ -129,17 +150,8 @@ object SparkApp1 {
     if (cassandra_host != "") {
       CassandraConnector(conf).withSessionDo { session =>
         session.execute("CREATE KEYSPACE IF NOT EXISTS raw WITH REPLICATION = {'class': 'SimpleStrategy', 'replication_factor': 1 }")
-        session.execute("CREATE TABLE IF NOT EXISTS raw.cpu_usage_v1 (ts timestamp, date text,  machine_id text, cpu_usage float, primary key((machine_id, date), ts))")
-        session.execute("CREATE TABLE IF NOT EXISTS raw.mem_usage_v1 (ts timestamp, date text, machine_id text, mem_usage float, primary key((machine_id, date), ts))")
-        session.execute("CREATE TABLE IF NOT EXISTS raw.server_info_v1 " +
-          "(date text,  machine_id text, status text, cpu_info map<text,bigint>, mem_info map<text,bigint>, " +
-          "disk_info map<text,text>, net_info map<text,text>, ts timestamp, primary key((machine_id, date), ts))")
-        session.execute("CREATE TABLE IF NOT EXISTS raw.process_info_v1 " +
-          "(uuid timeuuid, date text, machine_id text, ts timestamp, proc_id int, parent_proc_id int, " +
-          "vm_size bigint, vm_peak bigint, cpu_usage float, threads int, status text, primary key((machine_id, date), ts))")
-        session.execute("CREATE TABLE IF NOT EXISTS raw.container_info_v1 " +
-          "(date text, machine_id text, ts timestamp, container_id text, image text, " +
-          "cpu_usage float, mem_usage bigint, disk_read bigint, disk_write bigint, network map<text, bigint>, primary key((machine_id, date), ts))")
+        session.execute("CREATE TABLE IF NOT EXISTS raw.Info （Ip text,BegTime timestamp, Protocal int, Content int, UserIp text, UserIpv6 text, UL int, DL int, IsSuccess bool, Host text, Content int, HTTPContentType text, FirstLatency int, Latency int, IsCacheAble bool, primary key((Ip, BegTime), Host)))")
+        //session.execute("CREATE TABLE IF NOT EXISTS raw.mem_usage_v1 (ts timestamp, date text, machine_id text, mem_usage float, primary key((machine_id, date), ts))")}
       }
     }
 
@@ -165,14 +177,14 @@ object SparkApp1 {
         val lis = con._2.split("|")
         if (lis.:\(8) == 15) {
           if (lis.:\(10) == 2 || lis.:\(10) == 3 || lis.:\(10) == 4) {
-            (User(lis.:\(12).toString().toString(),lis.:\(5).toString()), Cacheable(Integer.parseInt(lis.:\(10).toString()),true))
+            (userToString(User(lis.:\(12).toString().toString(),lis.:\(5).toString())), Cacheable(lis.:\(5).toString(),lis.:\(7),lis.:\(10), lis.:\(12).toString(),lis.:\(13).toString(),lis.:\(19),lis.:\(20),true))
           } else if (lis.:\(10) == 5 || lis.:\(10) == 1) {
-            (User(lis.:\(12).toString().toString(),lis.:\(5).toString()), Cacheable(Integer.parseInt(lis.:\(10).toString()),false))
+            (userToString(User(lis.:\(12).toString().toString(),lis.:\(5).toString())), Cacheable(lis.:\(5).toString(),lis.:\(7),lis.:\(10), lis.:\(12).toString(),lis.:\(13).toString(),lis.:\(19),lis.:\(20),false))
           }
         } else {
-          (User(lis.:\(12).toString().toString(),lis.:\(5).toString()), Cacheable(Integer.parseInt(lis.:\(10).toString()),false))
+          (userToString(User(lis.:\(12).toString().toString(),lis.:\(5).toString())), Cacheable(lis.:\(5).toString(),lis.:\(7),lis.:\(10), lis.:\(12).toString(),lis.:\(13).toString(),lis.:\(19),lis.:\(20),false))
         }
       })
-    }).saveToCassandra("raw", "cacheable", SomeColumns("ts", "date", "user_id", "cachaable"))
+    }).saveToCassandra("raw", "info", SomeColumns("BegTime", "Protocal", "Content", "UserIp", "UserIpv6", "UL", "DL", "IsSuccess", "Host", "Content", "HTTPContentType", "FirstLatency", "Latency", "IsCacheAble"))
   }
 }
